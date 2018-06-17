@@ -74,7 +74,7 @@ def make_dirs(name: str, start_template: str, end_template: str, basis: str, num
             print(f'Cannot find `.gbs` file that correspond to the given basis, {basis}')
 
 
-def write_coms(pattern: str):
+def write_coms(pattern: str, memory='2gb', charge=0, multiplicity=1):
     """Write the Gaussian com files for the directories that match the given pattern.
 
     Parameters
@@ -109,9 +109,9 @@ def write_coms(pattern: str):
         with open(os.path.join(parent, 'system.xyz2'), 'r') as f:
             xyz_content = f.read()
         # get com content
-        com_content = make_com(xyz_content, basis, chkfile='hf_sp.chk', memory='2gb',
+        com_content = make_com(xyz_content, basis, chkfile='hf_sp.chk', memory=memory,
                                title=f'HF/{basis} calculation for {system}/{templates}/{index}',
-                               charge=0, multiplicity=1)
+                               charge=charge, multiplicity=multiplicity)
         # make com file
         with open(os.path.join(dirname, 'hf_sp.com'), 'w')as f:
             f.write(com_content)
