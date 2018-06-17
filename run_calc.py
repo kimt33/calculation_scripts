@@ -153,9 +153,14 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
 
         _, orbital, wfn = filename.split(os.sep)
         if orbital == 'mo' and os.path.isfile(filename):
+            # need to change directory because Gaussian makes/uses chkfile in cwd
+            dirname, filename = os.path.split(filename)
+            os.chdir(dirname)
             command = f'g16 {filename}'
 
         # print(' '.join(['sbatch', f'--time={time}', f'--output={outfile}', f'--mem={memory}',
         #                 '--account=rrg-ayers-ab', command]))
         subprocess.run(['sbatch', f'--time={time}', f'--output={outfile}', f'--mem={memory}',
                         '--account=rrg-ayers-ab', command])
+        # change directory
+        os.chdir(cwd)
