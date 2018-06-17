@@ -155,7 +155,7 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
         if orbital == 'mo' and os.path.isfile(filename):
             command = f'g16 {filename}'
 
-        # print(' '.join(['sbatch', f'--time={time}', f'--output {outfile}', f'--mem={memory}',
-        #                 '--account rrg-ayers-ab', command]))
-        subprocess.run(['sbatch', f'--time={time}', f'--output {outfile}', f'--mem={memory}',
-                        '--account rrg-ayers-ab', command])
+        # print(' '.join(['sbatch', f'--time={time}', f'--output={outfile}', f'--mem={memory}',
+        #                 '--account=rrg-ayers-ab', command]))
+        subprocess.run(['sbatch', f'--time={time}', f'--output={outfile}', f'--mem={memory}',
+                        '--account=rrg-ayers-ab', command])
