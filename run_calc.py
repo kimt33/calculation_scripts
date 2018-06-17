@@ -1,6 +1,7 @@
 import os
 import glob
 import shutil
+import subprocess
 import make_xyz
 from make_com import make_com
 
@@ -114,3 +115,47 @@ def write_coms(pattern: str):
         # make com file
         with open(os.path.join(dirname, 'hf_sp.com'), 'w')as f:
             f.write(com_content)
+
+
+def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
+    """Run the calculations for the selected files/directories.
+
+    Parameters
+    ----------
+    pattern : str
+        Pattern for selecting the files.
+
+    Notes
+    -----
+    Can only execute at the base directory.
+
+    """
+    cwd = os.getcwd()
+
+    time = time.lower()
+    if time[-1] == 'd':
+        time = int(time[:-1]) * 24 * 60
+    elif time[-1] == 'h':
+        time = int(time[:-1]) * 60
+    elif time[-1] == 'm':
+        time = int(time[:-1])
+    else:
+        raise ValueError('Time must be given in minutes, hours, or days (e.g. 1440m, 24h, 1d).')
+
+    memory = memory.upper()
+    if memory[-2:] not in ['MB', 'GB']:
+        raise ValueError('Memory must be given as a MB or GB (e.g. 1024MB, 1GB)')
+
+    for filename in glob.glob(pattern):
+        if os.path.commonpath([cwd, os.path.abspath(filename)]) != cwd:
+            continue
+        filename = os.path.abspath(filename)[len(cwd)+1:]
+
+        _, orbital, wfn = filename.split(os.sep)
+        if orbital == 'mo' and os.path.isfile(filename):
+            command = f'g16 {filename}'
+
+        # print(' '.join(['sbatch', f'--time={time}', f'--output {outfile}', f'--mem={memory}',
+        #                 '--account rrg-ayers-ab', command]))
+        subprocess.run(['sbatch', f'--time={time}', f'--output {outfile}', f'--mem={memory}',
+                        '--account rrg-ayers-ab', command])
