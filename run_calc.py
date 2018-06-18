@@ -156,7 +156,11 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
             # need to change directory because Gaussian makes/uses chkfile in cwd
             dirname, filename = os.path.split(filename)
             os.chdir(dirname)
-            command = f'g16 {filename}'
+            # write script (because sbatch only takes one command)
+            with open('hf_sp.sh', 'w') as f:
+                f.write('#!/bin/bash\n')
+                f.write(f'g16 {filename}\n')
+            command = f'hf_sp.sh'
 
         # print(' '.join(['sbatch', f'--time={time}', f'--output={outfile}', f'--mem={memory}',
         #                 '--account=rrg-ayers-ab', command]))
