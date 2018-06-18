@@ -2,6 +2,7 @@ import os
 import glob
 import shutil
 import subprocess
+import numpy as np
 import make_xyz
 from make_com import make_com
 
@@ -117,6 +118,121 @@ def write_coms(pattern: str, memory='2gb', charge=0, multiplicity=1):
             f.write(com_content)
 
 
+def make_wfn_dirs(pattern: str, wfn_name: str, num_runs: int):
+    """Make directories for running the wavefunction calculations.
+
+    Parameters
+    ----------
+    pattern : str
+        Pattern for the directories on which the new directories will be created.
+        These directories must contain the files `oneint.npy` and `twoint.npy`.
+    wfn_name : str
+        Name of the wavefunction.
+    num_runs : int
+        Number of calculations that will be run.
+
+    """
+    for parent in glob.glob(pattern):
+        if not os.path.isdir(parent):
+            continue
+        if not (os.path.isfile(os.path.join(parent, 'oneint.npy')) and
+                os.path.isfile(os.path.join(parent, 'twoint.npy'))):
+            continue
+
+        newdir = os.path.join(parent, wfn_name)
+        if not os.path.isdir(newdir):
+            os.mkdir(newdir)
+
+        for i in range(num_runs):
+            try:
+                os.mkdir(os.path.join(newdir, str(i)))
+            except FileExistsError:
+                pass
+
+
+def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=False,
+                 pspace_exc=None, objective=None, solver=None,
+                 load_orbs=None, load_ham=None, load_wfn=None, filename=None):
+    """Make a script for running calculations.
+
+    Parameters
+    ----------
+    nelec : int
+        Number of electrons.
+    one_int_file : str
+        Path to the one electron integrals (for restricted orbitals).
+        One electron integrals should be stored as a numpy array of dimension (nspin/2, nspin/2).
+    two_int_file : str
+        Path to the two electron integrals (for restricted orbitals).
+        Two electron integrals should be stored as a numpy array of dimension
+        (nspin/2, nspin/2, nspin/2, nspin/2).
+    wfn_type : str
+        Type of wavefunction.
+        One of `fci`, `doci`, `mps`, `determinant-ratio`, `ap1rog`, `apr2g`, `apig`, `apsetg`, and
+        `apg`.
+    optimize_orbs : bool
+        If True, orbitals are optimized.
+        If False, orbitals are not optimized.
+        By default, orbitals are not optimized.
+        Not compatible with solvers that require a gradient (everything except cma).
+    pspace_exc : list of int
+        Orders of excitations that will be used to build the projection space.
+        Default is first and second order excitations of the HF ground state.
+    objective : str
+        Form of the Schrodinger equation that will be solved.
+        Use `system` to solve the Schrodinger equation as a system of equations.
+        Use `least_squares` to solve the Schrodinger equation as a squared sum of the system of
+        equations.
+        Use `variational` to solve the Schrodinger equation variationally.
+        Must be one of `system`, `least_squares`, and `variational`.
+        By default, the Schrodinger equation is solved as system of equations.
+    solver : str
+        Solver that will be used to solve the Schrodinger equation.
+        Keyword `cma` uses Covariance Matrix Adaptation - Evolution Strategy (CMA-ES).
+        Keyword `diag` results in diagonalizing the CI matrix.
+        Keyword `minimize` uses the BFGS algorithm.
+        Keyword `least_squares` uses the Trust Region Reflective Algorithm.
+        Keyword `root` uses the MINPACK hybrd routine.
+        Must be one of `cma`, `diag`, `least_squares`, or `root`.
+        Must be compatible with the objective.
+    load_orbs : str
+        Numpy file of the orbital transformation matrix that will be applied to the initial
+        Hamiltonian.
+        If the initial Hamiltonian parameters are provided, the orbitals will be transformed
+        afterwards.
+    load_ham : str
+        Numpy file of the Hamiltonian parameters that will overwrite the parameters of the initial
+        Hamiltonian.
+    load_wfn : str
+        Numpy file of the wavefunction parameters that will overwrite the parameters of the initial
+        wavefunction.
+    filename : str
+        Name of the file that will store the output.
+
+    """
+    cwd = os.getcwd()
+    for parent in glob.glob(pattern):
+        if not os.path.isdir(parent):
+            continue
+        os.chdir(parent)
+
+        filename = os.path.join(parent, 'calculate.py')
+        nucnuc = np.load('../hf_energies.npy')[1]
+        nspin = np.load('../oneint.npy').shape[0]
+        subprocess.run(['wnfs_make_script', nelec, nspin, '../oneint.npy', '../twoint.npy',
+                        wfn_type, f'--nuc_repulsion {nucnuc}', '--optimize_orbs'*optimize_orbs,
+                        f'--pspace {pspace}', f'--objective {objective}', f'--solver {solver}',
+                        f'--load_orbs {load_orbs}'*bool(load_orbs),
+                        f'--load_ham {load_ham}'*bool(load_ham),
+                        f'--load_wfn {load_wfn}'*bool(load_wfn),
+                        f'--save_ham hamiltonian.npy',
+                        f'--save_wfn wavefunction.npy',
+                        f'--save_chk checkpoint.npy',
+                        f'--filename {filename}'])
+
+        os.chdir(cwd)
+
+
 def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
     """Run the calculations for the selected files/directories.
 
@@ -152,7 +268,7 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
         filename = os.path.abspath(filename)[len(cwd)+1:]
 
         _, orbital, wfn = filename.split(os.sep)
-        if orbital == 'mo' and os.path.isfile(filename):
+        if orbital == 'mo' and os.path.splitext(filename)[1] == '.com':
             # need to change directory because Gaussian makes/uses chkfile in cwd
             dirname, filename = os.path.split(filename)
             os.chdir(dirname)
@@ -161,6 +277,9 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
                 f.write('#!/bin/bash\n')
                 f.write(f'g16 {filename}\n')
             command = f'hf_sp.sh'
+
+        elif os.path.splitext(filename)[1] == '.py':
+            pass
 
         # print(' '.join(['sbatch', f'--time={time}', f'--output={outfile}', f'--mem={memory}',
         #                 '--account=rrg-ayers-ab', command]))
