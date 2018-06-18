@@ -221,7 +221,7 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
         nspin = np.load('../oneint.npy').shape[0]
         subprocess.run(['wnfs_make_script', nelec, nspin, '../oneint.npy', '../twoint.npy',
                         wfn_type, f'--nuc_repulsion {nucnuc}', '--optimize_orbs'*optimize_orbs,
-                        f'--pspace {pspace}', f'--objective {objective}', f'--solver {solver}',
+                        f'--pspace {pspace_exc}', f'--objective {objective}', f'--solver {solver}',
                         f'--load_orbs {load_orbs}'*bool(load_orbs),
                         f'--load_ham {load_ham}'*bool(load_ham),
                         f'--load_wfn {load_wfn}'*bool(load_wfn),
@@ -270,22 +270,32 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
         _, orbital, wfn = filename.split(os.sep)
         dirname, filename = os.path.split(filename)
         os.chdir(dirname)
+        submit_job = False
+
         if orbital == 'mo' and os.path.splitext(filename)[1] == '.com':
             # write script (because sbatch only takes one command)
             with open('hf_sp.sh', 'w') as f:
                 f.write('#!/bin/bash\n')
                 f.write(f'g16 {filename}\n')
-            command = f'hf_sp.sh'
+            command = ['hf_sp.sh']
+            submit_job = True
         elif orbital == 'mo' and os.path.splitext(filename)[1] == '.chk':
-            subprocess.run(['formchk', filename])
-            os.chdir(cwd)
-            continue
+            command = ['formchk', filename]
+            submit_job = False
+        elif orbital == 'mo' and os.path.splitext(filename)[1] == '.fchk':
+            command = ['horton_gaussian_fchk', 'hf_energies.npy', 'oneint.npy', 'twoint.npy',
+                       f'fchk_file {filename}']
+            submit_job = False
         elif os.path.splitext(filename)[1] == '.py':
             pass
 
         # print(' '.join(['sbatch', f'--time={time}', f'--output={outfile}', f'--mem={memory}',
         #                 '--account=rrg-ayers-ab', command]))
-        subprocess.run(['sbatch', f'--time={time}', f'--output={outfile}', f'--mem={memory}',
-                        '--account=rrg-ayers-ab', command])
+        if submit_job:
+            subprocess.run(['sbatch', f'--time={time}', f'--output={outfile}', f'--mem={memory}',
+                            '--account=rrg-ayers-ab', *command])
+        else:
+            subprocess.run(command)
+
         # change directory
         os.chdir(cwd)
