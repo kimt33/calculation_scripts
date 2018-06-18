@@ -268,16 +268,18 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
         filename = os.path.abspath(filename)[len(cwd)+1:]
 
         _, orbital, wfn = filename.split(os.sep)
+        dirname, filename = os.path.split(filename)
+        os.chdir(dirname)
         if orbital == 'mo' and os.path.splitext(filename)[1] == '.com':
-            # need to change directory because Gaussian makes/uses chkfile in cwd
-            dirname, filename = os.path.split(filename)
-            os.chdir(dirname)
             # write script (because sbatch only takes one command)
             with open('hf_sp.sh', 'w') as f:
                 f.write('#!/bin/bash\n')
                 f.write(f'g16 {filename}\n')
             command = f'hf_sp.sh'
-
+        elif orbital == 'mo' and os.path.splitext(filename)[1] == '.chk':
+            subprocess.run(['formchk', filename])
+            os.chdir(cwd)
+            continue
         elif os.path.splitext(filename)[1] == '.py':
             pass
 
