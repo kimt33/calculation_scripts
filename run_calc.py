@@ -283,8 +283,9 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
             command = ['formchk', filename]
             submit_job = False
         elif orbital == 'mo' and os.path.splitext(filename)[1] == '.fchk':
-            command = ['horton_gaussian_fchk', 'hf_energies.npy', 'oneint.npy', 'twoint.npy',
-                       f'fchk_file {filename}']
+            command = [os.environ.get('HORTONPYTHON'),
+                       '/project/def-ayers/kimt33/fanpy/scripts/horton_gaussian_fchk.py',
+                       'hf_energies.npy', 'oneint.npy', 'twoint.npy', 'fchk_file', filename]
             submit_job = False
         elif os.path.splitext(filename)[1] == '.py':
             pass
