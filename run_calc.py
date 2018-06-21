@@ -152,7 +152,7 @@ def make_wfn_dirs(pattern: str, wfn_name: str, num_runs: int):
 
 def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=False,
                  pspace_exc=None, objective=None, solver=None,
-                 load_orbs=None, load_ham=None, load_wfn=None, filename=None):
+                 load_orbs=None, load_ham=None, load_wfn=None):
     """Make a script for running calculations.
 
     Parameters
@@ -206,29 +206,47 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
     load_wfn : str
         Numpy file of the wavefunction parameters that will overwrite the parameters of the initial
         wavefunction.
-    filename : str
-        Name of the file that will store the output.
 
     """
     cwd = os.getcwd()
     for parent in glob.glob(pattern):
         if not os.path.isdir(parent):
             continue
+
         os.chdir(parent)
 
-        filename = os.path.join(parent, 'calculate.py')
-        nucnuc = np.load('../hf_energies.npy')[1]
-        nspin = np.load('../oneint.npy').shape[0]
-        subprocess.run(['wnfs_make_script', nelec, nspin, '../oneint.npy', '../twoint.npy',
-                        wfn_type, f'--nuc_repulsion {nucnuc}', '--optimize_orbs'*optimize_orbs,
-                        f'--pspace {pspace_exc}', f'--objective {objective}', f'--solver {solver}',
-                        f'--load_orbs {load_orbs}'*bool(load_orbs),
-                        f'--load_ham {load_ham}'*bool(load_ham),
-                        f'--load_wfn {load_wfn}'*bool(load_wfn),
-                        f'--save_ham hamiltonian.npy',
-                        f'--save_wfn wavefunction.npy',
-                        f'--save_chk checkpoint.npy',
-                        f'--filename {filename}'])
+        filename = 'calculate.py'
+        oneint = os.path.abspath('../oneint.npy')
+        twoint = os.path.abspath('../twoint.npy')
+        hf_energies = os.path.abspath('../hf_energies.npy')
+
+        nspin = np.load(oneint).shape[1] * 2
+        nucnuc = np.load(hf_energies)[1]
+        if pspace_exc is None:
+            pspace_exc = [1, 2, 3, 4]
+        pspace_exc = [str(i) for i in pspace_exc]
+        if objective is None:
+            objective = 'variational'
+        if solver is None:
+            solver = 'cma'
+
+        load_files = []
+        if load_orbs:
+            load_files += ['--load_orbs', load_orbs]
+        if load_ham:
+            load_files += ['--load_ham', load_ham]
+        if load_wfn:
+            load_files += ['--load_wfn', load_wfn]
+
+        subprocess.run(['python', '/project/def-ayers/kimt33/fanpy/scripts/wfns_make_script.py',
+                        str(nelec), str(nspin), oneint, twoint, wfn_type,
+                        '--nuc_repulsion', f'{nucnuc}', '--optimize_orbs'*optimize_orbs,
+                        '--pspace', *pspace_exc, '--objective', objective, '--solver', solver,
+                        *load_files,
+                        '--save_ham', 'hamiltonian.npy',
+                        '--save_wfn', 'wavefunction.npy',
+                        '--save_chk', 'checkpoint.npy',
+                        '--filename', filename])
 
         os.chdir(cwd)
 
@@ -267,7 +285,7 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
             continue
         filename = os.path.abspath(filename)[len(cwd)+1:]
 
-        _, orbital, wfn = filename.split(os.sep)
+        _, orbital, *wfn = filename.split(os.sep)
         dirname, filename = os.path.split(filename)
         os.chdir(dirname)
         submit_job = False
@@ -287,8 +305,9 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
                        '/project/def-ayers/kimt33/fanpy/scripts/horton_gaussian_fchk.py',
                        'hf_energies.npy', 'oneint.npy', 'twoint.npy', 'fchk_file', filename]
             submit_job = False
-        elif os.path.splitext(filename)[1] == '.py':
-            pass
+        elif len(wfn) == 2:
+            command = ['python', '../calculate.py']
+            submit_job = True
 
         # print(' '.join(['sbatch', f'--time={time}', f'--output={outfile}', f'--mem={memory}',
         #                 '--account=rrg-ayers-ab', command]))
