@@ -31,7 +31,8 @@ def make_dirs(name: str, start_template: str, end_template: str, basis: str, num
     start_template_index = int(start_template.split('_')[1])
     end_template_index = int(end_template.split('_')[1])
 
-    dir_basename = f'{name}_{start_template_index}{end_template_index}_{{}}_{basis}'
+    dir_basename = os.path.join('database',
+                                f'{name}_{start_template_index}{end_template_index}_{{}}_{basis}')
     for i, xyz in enumerate(make_xyz.xyz_from_templates(start_template, end_template, num_steps)):
         dirname = dir_basename.format(i)
 
@@ -285,9 +286,12 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
             continue
         filename = os.path.abspath(filename)[len(cwd)+1:]
 
-        _, orbital, *wfn = filename.split(os.sep)
-        dirname, filename = os.path.split(filename)
-        os.chdir(dirname)
+        _, _, orbital, *wfn = filename.split(os.sep)
+        if os.path.isdir(filename):
+            os.chdir(filename)
+        else:
+            dirname, filename = os.path.split(filename)
+            os.chdir(dirname)
         submit_job = False
 
         if orbital == 'mo' and os.path.splitext(filename)[1] == '.com':
@@ -306,7 +310,10 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
                        'hf_energies.npy', 'oneint.npy', 'twoint.npy', 'fchk_file', filename]
             submit_job = False
         elif len(wfn) == 2:
-            command = ['python', '../calculate.py']
+            with open('results.sh', 'w') as f:
+                f.write('#!/bin/bash\n')
+                f.write(f'python ../calculate.py\n')
+            command = ['results.sh']
             submit_job = True
 
         # print(' '.join(['sbatch', f'--time={time}', f'--output={outfile}', f'--mem={memory}',
