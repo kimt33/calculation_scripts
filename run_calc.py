@@ -323,9 +323,19 @@ def run_calcs(pattern: str, time='1d', memory='2GB', outfile='outfile'):
                        'hf_energies.npy', 'oneint.npy', 'twoint.npy', 'fchk_file', filename]
             submit_job = False
         elif len(wfn) == 2:
-            with open('results.sh', 'w') as f:
-                f.write('#!/bin/bash\n')
-                f.write(f'python ../calculate.py\n')
+            if os.path.splitext(filename)[1] == '.py':
+                with open('results.sh', 'w') as f:
+                    f.write('#!/bin/bash\n')
+                    f.write('cwd=$PWD\n')
+                    f.write('for i in */; do\n')
+                    f.write('    cd $i\n')
+                    f.write('    python ../calculate.py > results.out\n')
+                    f.write('    cd $cwd\n')
+                    f.write('done\n')
+            else:
+                with open('results.sh', 'w') as f:
+                    f.write('#!/bin/bash\n')
+                    f.write(f'python ../calculate.py\n')
             command = ['results.sh']
             submit_job = True
 
