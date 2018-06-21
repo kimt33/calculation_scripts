@@ -119,6 +119,19 @@ def write_coms(pattern: str, memory='2gb', charge=0, multiplicity=1):
             f.write(com_content)
 
 
+def make_orb_dirs(pattern: str, name: str):
+    for parent in glob.glob(pattern):
+        newdir = os.path.join(parent, name)
+        if os.path.isdir(newdir):
+            continue
+
+        if not (os.path.isfile(os.path.join(parent, 'mo', 'oneint.npy')) and
+                os.path.isfile(os.path.join(parent, 'mo', 'twoint.npy'))) and name != 'mo':
+            continue
+
+        os.mkdir(newdir)
+
+
 def make_wfn_dirs(pattern: str, wfn_name: str, num_runs: int):
     """Make directories for running the wavefunction calculations.
 
@@ -136,8 +149,8 @@ def make_wfn_dirs(pattern: str, wfn_name: str, num_runs: int):
     for parent in glob.glob(pattern):
         if not os.path.isdir(parent):
             continue
-        if not (os.path.isfile(os.path.join(parent, 'oneint.npy')) and
-                os.path.isfile(os.path.join(parent, 'twoint.npy'))):
+        if not (os.path.isfile(os.path.join(parent, '..', 'mo', 'oneint.npy')) and
+                os.path.isfile(os.path.join(parent, '..', 'mo', 'twoint.npy'))):
             continue
 
         newdir = os.path.join(parent, wfn_name)
@@ -217,9 +230,9 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
         os.chdir(parent)
 
         filename = 'calculate.py'
-        oneint = os.path.abspath('../oneint.npy')
-        twoint = os.path.abspath('../twoint.npy')
-        hf_energies = os.path.abspath('../hf_energies.npy')
+        oneint = os.path.abspath('../../mo/oneint.npy')
+        twoint = os.path.abspath('../../mo/twoint.npy')
+        hf_energies = os.path.abspath('../../mo/hf_energies.npy')
 
         nspin = np.load(oneint).shape[1] * 2
         nucnuc = np.load(hf_energies)[1]
