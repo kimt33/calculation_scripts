@@ -253,7 +253,8 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
             load_files += ['--load_wfn', load_wfn]
 
         subprocess.run(['python', '/project/def-ayers/kimt33/fanpy/scripts/wfns_make_script.py',
-                        str(nelec), str(nspin), oneint, twoint, wfn_type,
+                        '--nelec', str(nelec), '--nspin', str(nspin),
+                        '--one_int_file', oneint, '--two_int_file', twoint, '--wfn_type', wfn_type,
                         '--nuc_repulsion', f'{nucnuc}', '--optimize_orbs'*optimize_orbs,
                         '--pspace', *pspace_exc, '--objective', objective, '--solver', solver,
                         *load_files,
