@@ -166,7 +166,7 @@ def make_wfn_dirs(pattern: str, wfn_name: str, num_runs: int):
 
 def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=False,
                  pspace_exc=None, objective=None, solver=None,
-                 load_orbs=None, load_ham=None, load_wfn=None):
+                 load_orbs=None, load_ham=None, load_wfn=None, memory=None):
     """Make a script for running calculations.
 
     Parameters
@@ -220,9 +220,35 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
     load_wfn : str
         Numpy file of the wavefunction parameters that will overwrite the parameters of the initial
         wavefunction.
+    memory : str
+        Memory available to run the calculation.
 
     """
     cwd = os.getcwd()
+
+    if pspace_exc is None:
+        pspace_exc = [1, 2, 3, 4]
+    pspace_exc = [str(i) for i in pspace_exc]
+
+    if objective is None:
+        objective = 'variational'
+
+    if solver is None:
+        solver = 'cma'
+
+    load_files = []
+    if load_orbs:
+        load_files += ['--load_orbs', load_orbs]
+    if load_ham:
+        load_files += ['--load_ham', load_ham]
+    if load_wfn:
+        load_files += ['--load_wfn', load_wfn]
+
+    if memory is None:
+        memory = []
+    else:
+        memory = ['--memory', memory]
+
     for parent in glob.glob(pattern):
         if not os.path.isdir(parent):
             continue
@@ -236,21 +262,6 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
 
         nspin = np.load(oneint).shape[1] * 2
         nucnuc = np.load(hf_energies)[1]
-        if pspace_exc is None:
-            pspace_exc = [1, 2, 3, 4]
-        pspace_exc = [str(i) for i in pspace_exc]
-        if objective is None:
-            objective = 'variational'
-        if solver is None:
-            solver = 'cma'
-
-        load_files = []
-        if load_orbs:
-            load_files += ['--load_orbs', load_orbs]
-        if load_ham:
-            load_files += ['--load_ham', load_ham]
-        if load_wfn:
-            load_files += ['--load_wfn', load_wfn]
 
         subprocess.run(['python', '/project/def-ayers/kimt33/fanpy/scripts/wfns_make_script.py',
                         '--nelec', str(nelec), '--nspin', str(nspin),
@@ -261,7 +272,7 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
                         '--save_ham', 'hamiltonian.npy',
                         '--save_wfn', 'wavefunction.npy',
                         '--save_chk', 'checkpoint.npy',
-                        '--filename', filename])
+                        '--filename', filename, *memory])
 
         os.chdir(cwd)
 
