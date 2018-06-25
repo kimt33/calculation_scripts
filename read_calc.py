@@ -22,7 +22,7 @@ def status(pattern: str):
         with open(filename, 'r') as f:
             results = f.read()
 
-        if re.search('Optimization was successful: ', results):
+        if re.search('Optimization was successful', results):
             success.append(filename)
         elif re.search('Optimization was not successful: ', results):
             opt_failed.append(filename)
@@ -55,15 +55,17 @@ def extract_results(pattern: str):
         with open(filename, 'r') as f:
             results = f.read()
 
-        split_filename = os.sep.split(filename)
+        split_filename = filename.split(os.sep)
         dict_calc = {}
-        if len(split_filename) == 5:
-            system_basis, orbital, wfn, index, filename = split_filename
+        if len(split_filename) == 6:
+            _, system_basis, orbital, wfn, index, filename = split_filename
             dict_calc['wfn'] = wfn
             dict_calc['index'] = index
-        elif len(split_filename) == 3:
-            system_basis, orbital, filename = split_filename
+        elif len(split_filename) == 4:
+            _, system_basis, orbital, filename = split_filename
             dict_calc['wfn'] = 'hf'
+        else:
+            raise NotImplementedError(f'Unsupported file/directory: {filename}')
         system, basis = system_basis.rsplit('_', 1)
         dict_calc['system'] = system
         dict_calc['basis'] = basis
@@ -104,7 +106,7 @@ def select_results(results: dict, system: str, basis: str, orbital: str, wfn: st
                 result['orbital'] == orbital and
                 result['wfn'] == wfn):
             continue
-        xval = result['system'].rsplit('_', 1)
-        output_x.append(int(xval))
+        xval = result['system'].rsplit('_', 1)[1]
+        output_x.append(xval)
         output_y.append(result['energy'])
-    return np.array(output_x), np.array(output_y)
+    return np.array(output_x, dtype=int), np.array(output_y, dtype=float)

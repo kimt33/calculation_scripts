@@ -226,6 +226,11 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
     """
     cwd = os.getcwd()
 
+    if optimize_orbs:
+        optimize_orbs = ['--optimize_orbs']
+    else:
+        optimize_orbs = []
+
     if pspace_exc is None:
         pspace_exc = [1, 2, 3, 4]
     pspace_exc = [str(i) for i in pspace_exc]
@@ -266,7 +271,7 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
         subprocess.run(['python', '/project/def-ayers/kimt33/fanpy/scripts/wfns_make_script.py',
                         '--nelec', str(nelec), '--nspin', str(nspin),
                         '--one_int_file', oneint, '--two_int_file', twoint, '--wfn_type', wfn_type,
-                        '--nuc_repulsion', f'{nucnuc}', '--optimize_orbs'*optimize_orbs,
+                        '--nuc_repulsion', f'{nucnuc}', *optimize_orbs,
                         '--pspace', *pspace_exc, '--objective', objective, '--solver', solver,
                         *load_files,
                         '--save_ham', 'hamiltonian.npy',
