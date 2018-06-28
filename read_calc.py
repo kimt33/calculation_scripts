@@ -43,25 +43,53 @@ def extract_results(pattern: str):
         Unix shell style wildcard pattern to find the calculations.
 
     """
-    filenames, *_ = status(pattern)
+    if pattern[-4:] == '.out':
+        filenames, *_, running = status(pattern)
+    elif pattern[-4:] == '.npy':
+        filenames = glob.glob(pattern)
+        running = []
+
     cwd = os.getcwd()
     output = []
-    for filename in filenames:
+    for i, filename in enumerate(filenames + running):
+        if i >= len(filenames):
+            is_complete = False
+        else:
+            is_complete = True
+
         filename = os.path.abspath(filename)
         if os.path.commonpath([cwd, filename]) != cwd:
             continue
         filename = filename[len(cwd)+1:]
 
-        with open(filename, 'r') as f:
-            results = f.read()
-
         split_filename = filename.split(os.sep)
         dict_calc = {}
         if len(split_filename) == 6:
+            with open(filename, 'r') as f:
+                results = f.read()
+            if results == '':
+                continue
+
             _, system_basis, orbital, wfn, index, filename = split_filename
             dict_calc['wfn'] = wfn
             dict_calc['index'] = index
+
+            re_nuc = re.search(r'Nuclear-nuclear repulsion: (.+)', results)
+            nuc_nuc = re_nuc.group(1)
+
+            if is_complete:
+                re_energy = re.search(r'Final Energy: (.+)', results)
+                energy = re_energy.group(1)
+            else:
+                lastline = re.split(r'\n', results)[-2]
+                if 'Iterat' in lastline:
+                    continue
+                _, _, energy, _, sigma, *_ = re.split(r'\s+', lastline)
+                dict_calc['sigma'] = sigma
+
         elif len(split_filename) == 4:
+            energy, nuc_nuc = np.load(filename)
+
             _, system_basis, orbital, filename = split_filename
             dict_calc['wfn'] = 'hf'
         else:
@@ -71,10 +99,8 @@ def extract_results(pattern: str):
         dict_calc['basis'] = basis
         dict_calc['orbital'] = orbital
         dict_calc['filename'] = filename
-
-        re_energy = re.search(r'Final Energy: (.+)$', results)
-        energy = re_energy.group(1)
         dict_calc['energy'] = energy
+        dict_calc['nuc_nuc'] = nuc_nuc
 
         output.append(dict_calc)
 
@@ -108,5 +134,5 @@ def select_results(results: dict, system: str, basis: str, orbital: str, wfn: st
             continue
         xval = result['system'].rsplit('_', 1)[1]
         output_x.append(xval)
-        output_y.append(result['energy'])
+        output_y.append(result['energy'] + result['nuc_nuc'])
     return np.array(output_x, dtype=int), np.array(output_y, dtype=float)
