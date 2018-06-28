@@ -113,7 +113,7 @@ def select_results(results: dict, system: str, basis: str, orbital: str, wfn: st
     Pattern
     -------
     results : dict
-        Dictionary of the results from `extract_results` 
+        Dictionary of the results from `extract_results`
     system : str
         Unix shell style wildcard pattern to select the systems.
     basis : str
@@ -126,6 +126,7 @@ def select_results(results: dict, system: str, basis: str, orbital: str, wfn: st
     """
     output_x = []
     output_y = []
+    output_error = []
     for result in results:
         if not (fnmatch.fnmatch(result['system'], system) and
                 result['basis'] == basis and
@@ -134,5 +135,40 @@ def select_results(results: dict, system: str, basis: str, orbital: str, wfn: st
             continue
         xval = result['system'].rsplit('_', 1)[1]
         output_x.append(xval)
-        output_y.append(result['energy'] + result['nuc_nuc'])
-    return np.array(output_x, dtype=int), np.array(output_y, dtype=float)
+        output_y.append(float(result['energy']) + float(result['nuc_nuc']))
+        try:
+            output_error.append(result['sigma'])
+        except KeyError:
+            output_error.append(0)
+    return np.array(output_x, dtype=int), np.array(output_y, dtype=float), np.array(output_error, dtype=float)
+
+
+def trim(x, y, keep='all'):
+    new_x = []
+    new_y = []
+    for i in range(50):
+        if np.all(x != i):
+            continue
+        # most frequent value
+        y_vals = y[x == i]
+        # round to 8th decimal
+        y_vals = np.around(y_vals, 8)
+        # remove repeated numbers
+        y_vals_unique = np.unique(y_vals)
+        # find frequency
+        hist = np.array([np.sum(y_vals == i) for i in y_vals_unique])
+        # if all are kept
+        if keep == 'all':
+            new_x.extend([i] * y_vals_unique.size)
+            new_y.extend(y_vals_unique)
+        # if only minimm is kept
+        elif keep == 'min':
+            new_x.append(i)
+            new_y.append(min(y_vals_unique))
+        # if only the most frequent is kept
+        elif keep == 'frequent':
+            new_x.append(i)
+            new_y.append(y_vals_unique[np.argmax(hist)])
+
+    new_x, new_y = np.array(new_x), np.array(new_y)
+    return new_x, new_y
