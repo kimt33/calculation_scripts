@@ -17,6 +17,7 @@ def status(pattern: str):
     success = []
     opt_failed = []
     code_failed = []
+    no_time = []
     running = []
     for filename in glob.glob(pattern):
         with open(filename, 'r') as f:
@@ -28,10 +29,13 @@ def status(pattern: str):
             opt_failed.append(filename)
         elif re.search('Traceback (most recent call last):', results):
             code_failed.append(filename)
+        elif re.search(r'slurmstepd: error: \*\*\* JOB .+ ON .+ CANCELLED AT .+ DUE TO TIME LIMIT',
+                       results):
+            no_time.append(filename)
         else:
             running.append(filename)
 
-    return success, opt_failed, code_failed, running
+    return success, opt_failed, code_failed, no_time, running
 
 
 def extract_results(pattern: str):
@@ -44,14 +48,14 @@ def extract_results(pattern: str):
 
     """
     if pattern[-4:] == '.out':
-        filenames, *_, running = status(pattern)
+        filenames, *_, no_time, running = status(pattern)
     elif pattern[-4:] == '.npy':
         filenames = glob.glob(pattern)
         running = []
 
     cwd = os.getcwd()
     output = []
-    for i, filename in enumerate(filenames + running):
+    for i, filename in enumerate(filenames + running + no_time):
         if i >= len(filenames):
             is_complete = False
         else:
