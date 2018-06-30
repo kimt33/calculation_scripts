@@ -165,8 +165,8 @@ def make_wfn_dirs(pattern: str, wfn_name: str, num_runs: int):
 
 
 def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=False,
-                 pspace_exc=None, objective=None, solver=None,
-                 load_orbs=None, load_ham=None, load_wfn=None, memory=None):
+                 pspace_exc=None, objective=None, solver=None, solver_kwargs=None, wfn_kwargs=None,
+                 load_orbs=None, load_ham=None, load_wfn=None, load_chk=None, memory=None):
     """Make a script for running calculations.
 
     Parameters
@@ -220,6 +220,8 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
     load_wfn : str
         Numpy file of the wavefunction parameters that will overwrite the parameters of the initial
         wavefunction.
+    load_chk : str
+        Numpy file of the checkpoint for the optimization.
     memory : str
         Memory available to run the calculation.
 
@@ -240,6 +242,9 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
 
     if solver is None:
         solver = 'cma'
+    if solver == 'cma' and solver_kwargs is None:
+        solver_kwargs = ("sigma0=0.01, options={'ftarget': None, 'timeout': np.inf, "
+                         "'tolfun': 1e-11, 'verb_filenameprefix': 'outcmaes', 'verb_log': 0}")
 
     load_files = []
     if load_orbs:
@@ -248,6 +253,8 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
         load_files += ['--load_ham', load_ham]
     if load_wfn:
         load_files += ['--load_wfn', load_wfn]
+    if load_chk:
+        load_files += ['--load_chk', load_chk]
 
     if memory is None:
         memory = []
@@ -270,9 +277,11 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
 
         subprocess.run(['python', '/project/def-ayers/kimt33/fanpy/scripts/wfns_make_script.py',
                         '--nelec', str(nelec), '--nspin', str(nspin),
-                        '--one_int_file', oneint, '--two_int_file', twoint, '--wfn_type', wfn_type,
-                        '--nuc_repulsion', f'{nucnuc}', *optimize_orbs,
-                        '--pspace', *pspace_exc, '--objective', objective, '--solver', solver,
+                        '--one_int_file', oneint, '--two_int_file', twoint,
+                        '--nuc_repulsion', f'{nucnuc}', *optimize_orbs, '--wfn_type', wfn_type,
+                        '--pspace', *pspace_exc, '--objective', objective,
+                        '--wfn_kwargs', f'"{wfn_kwargs}"',
+                        '--solver', solver, '--solver_kwargs', f'"{solver_kwargs}"',
                         *load_files,
                         '--save_ham', 'hamiltonian.npy',
                         '--save_wfn', 'wavefunction.npy',
