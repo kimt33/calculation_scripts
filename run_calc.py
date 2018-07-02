@@ -166,7 +166,7 @@ def make_wfn_dirs(pattern: str, wfn_name: str, num_runs: int):
 
 def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=False,
                  pspace_exc=None, objective=None, solver=None, solver_kwargs=None, wfn_kwargs=None,
-                 load_orbs=None, load_ham=None, load_wfn=None, load_chk=None, memory=None):
+                 load_orbs=None, load_ham=None, load_wfn=None, load_chk=None, memory=None, filename=None):
     """Make a script for running calculations.
 
     Parameters
@@ -261,16 +261,33 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
     else:
         memory = ['--memory', memory]
 
+    kwargs = []
+    if wfn_kwargs is not None:
+        kwargs += ['--wfn_kwargs', wfn_kwargs]
+    if solver_kwargs is not None:
+        kwargs += ['--solver_kwargs', solver_kwargs]
+
     for parent in glob.glob(pattern):
         if not os.path.isdir(parent):
             continue
 
         os.chdir(parent)
 
-        filename = 'calculate.py'
-        oneint = os.path.abspath('../../mo/oneint.npy')
-        twoint = os.path.abspath('../../mo/twoint.npy')
-        hf_energies = os.path.abspath('../../mo/hf_energies.npy')
+        if filename is None:
+            filename = 'calculate.py'
+
+        # check if final directory is a number
+        _, dirname = os.path.split(parent)
+        try:
+            int(dirname)
+        except ValueError:
+            oneint = os.path.abspath('../../mo/oneint.npy')
+            twoint = os.path.abspath('../../mo/twoint.npy')
+            hf_energies = os.path.abspath('../../mo/hf_energies.npy')
+        else:
+            oneint = os.path.abspath('../../../mo/oneint.npy')
+            twoint = os.path.abspath('../../../mo/twoint.npy')
+            hf_energies = os.path.abspath('../../../mo/hf_energies.npy')
 
         nspin = np.load(oneint).shape[1] * 2
         nucnuc = np.load(hf_energies)[1]
@@ -280,8 +297,7 @@ def write_wfn_py(pattern: str, nelec: int, wfn_type: str, optimize_orbs: bool=Fa
                         '--one_int_file', oneint, '--two_int_file', twoint,
                         '--nuc_repulsion', f'{nucnuc}', *optimize_orbs, '--wfn_type', wfn_type,
                         '--pspace', *pspace_exc, '--objective', objective,
-                        '--wfn_kwargs', f'"{wfn_kwargs}"',
-                        '--solver', solver, '--solver_kwargs', f'"{solver_kwargs}"',
+                        '--solver', solver, *kwargs,
                         *load_files,
                         '--save_ham', 'hamiltonian.npy',
                         '--save_wfn', 'wavefunction.npy',
