@@ -88,7 +88,7 @@ def extract_results(pattern: str):
                 lastline = re.split(r'\n', results)[-2]
                 if 'Iterat' in lastline:
                     continue
-                _, _, energy, _, sigma, *_ = re.split(r'\s+', lastline)
+                _, _, _, energy, _, sigma, *_ = re.split(r'\s+', lastline)
                 dict_calc['sigma'] = sigma
 
         elif len(split_filename) == 4:
